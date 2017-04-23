@@ -1,6 +1,8 @@
 """LQR, iLQR and MPC."""
 
 import numpy as np
+from scipy.linalg import solve_discrete_are
+from numpy.linalg import inv
 
 
 def simulate_dynamics(env, x, u, dt=1e-5):
@@ -28,7 +30,12 @@ def simulate_dynamics(env, x, u, dt=1e-5):
       If you return x you will need to solve a different equation in
       your LQR controller.
     """
-    return np.zeros(x.shape)
+    # Set the state of the environment
+    env.state = x;
+    # Get resulting state
+    ob_next, reward, is_terminal, info = env._step(u, dt = dt);
+    
+    return ob_next;
 
 
 def approximate_A(env, x, u, delta=1e-5, dt=1e-5):
@@ -53,9 +60,19 @@ def approximate_A(env, x, u, delta=1e-5, dt=1e-5):
     -------
     A: np.array
       The A matrix for the dynamics at state x and command u.
+      Each column corresponds to the derivative of one feature in the
+      state. 
     """
-    return np.zeros((x.shape[0], x.shape[0]))
-
+    A = np.zeros((x.shape[0], x.shape[0]));
+    for i in range(x.shape[0]):
+        x_copy_plus = x.copy();
+        x_copy_plus[i] = x_copy_plus[i] + delta;
+        x_copy_mins = x.copy();
+        x_copy_mins[i] = x_copy_mins[i] - delta;
+        d_i = (simulate_dynamics(env, x_copy_plus, u, dt) -
+              simulate_dynamics(env, x_copy_mins, u, dt))/(delta * 2.0);
+        A[:, i] = d_i; 
+    return A;
 
 def approximate_B(env, x, u, delta=1e-5, dt=1e-5):
     """Approximate B matrix using finite differences.
@@ -80,7 +97,16 @@ def approximate_B(env, x, u, delta=1e-5, dt=1e-5):
     B: np.array
       The B matrix for the dynamics at state x and command u.
     """
-    return np.zeros((x.shape[0], u.shape[0]))
+    B = np.zeros((x.shape[0], u.shape[0]));
+    for i in range(u.shape[0]):
+        u_copy_plus = u.copy();
+        u_copy_plus[i] = u_copy_plus[i] + delta;
+        u_copy_mins = u.copy();
+        u_copy_mins[i] = u_copy_mins[i] - delta;
+        d_i = (simulate_dynamics(env, x, u_copy_plus, dt) -
+              simulate_dynamics(env, x, u_copy_mins, dt))/(delta * 2.0);
+        B[:, i] = d_i; 
+    return B;
 
 
 def calc_lqr_input(env, sim_env):
@@ -105,4 +131,14 @@ def calc_lqr_input(env, sim_env):
     u: np.array
       The command to execute at this point.
     """
-    return np.ones((2,))
+    x = env.state;
+    goal = env.goal;
+    u = [0.0,0.0]; # ????????
+    A = approximate_A(sim_env, np.array(x), np.array(u), delta=1e-5, dt=1e-5);
+    B = approximate_B(sim_env, np.array(x), np.array(u), delta=1e-5, dt=1e-5);
+    Q = env.Q;
+    R = env.R;
+    P = solve_discrete_are(A, B, Q, R);
+    F = inv(R + B.T.dot(P).dot(B)).dot(B.T.dot(P).dot(A));
+    ret = -F.dot(x);
+    return F;
