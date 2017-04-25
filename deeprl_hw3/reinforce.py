@@ -98,7 +98,7 @@ def choose_action(model, observation):
         the action you choose
     """
     #Use softmax policy to sample
-    # weights = model.weights #correct??
+    # weights = model.weights 
     # policy = tf.nn.softmax(tf.matmul(observation, weights)) #correct??
     # observation = np.asarray(observation)
     # #Since CartPole dimensionality is 4
@@ -158,15 +158,14 @@ def main():
     # score = tf.matmul(layer1,W2)
     # probability = tf.nn.sigmoid(score)
     model = load_model('CartPole-v0_config.yaml','CartPole-v0_weights.h5f')
-    weights = model.weights
-    probability = tf.matmul(observations,weights)
+    probability = model.predict_on_batch(observations)[1:2] #correct?
     # assign_ops = []
     # for w, new_w in zip(model.weights, weights):
     #     assign_ops.append(w.assign(new_w))
 
     #From here we define the parts of the network needed for learning a good policy.
-    #tvars = tf.trainable_variables()
-    tvars = weights
+    tvars = tf.trainable_variables()
+    #tvars = weights
     input_y = tf.placeholder(tf.float32,[None,1], name="input_y")
     advantages = tf.placeholder(tf.float32,name="reward_signal")
 
@@ -182,7 +181,7 @@ def main():
     #W1Grad = tf.placeholder(tf.float32,name="batch_grad1") # Placeholders to send the final gradients through when we update.
     #W2Grad = tf.placeholder(tf.float32,name="batch_grad2")
     #batchGrad = [W1Grad,W2Grad]
-    batchGrad = tf.placeholder(tf.floag32,name="batch_grad")
+    batchGrad = tf.placeholder(tf.floag32,name="batch_grad") #correct?
     updateGrads = adam.apply_gradients(zip(batchGrad,tvars))
 
     xs,hs,dlogps,drs,ys,tfps = [],[],[],[],[],[]
@@ -218,7 +217,8 @@ def main():
         
             # Run the policy network and get an action to take. 
             tfprob = sess.run(probability,feed_dict={observations: x})
-            action = 1 if np.random.uniform() < tfprob else 0
+            #action = 1 if np.random.uniform() < tfprob else 0
+            action = argmax(tfprob) #correct?
         
             xs.append(x) # observation
             y = 1 if action == 0 else 0 # a "fake label"
@@ -254,7 +254,7 @@ def main():
                 # If we have completed enough episodes, then update the policy network with our gradients.
                 if episode_number % batch_size == 0: 
                     #sess.run(updateGrads,feed_dict={W1Grad: gradBuffer[0],W2Grad:gradBuffer[1]})
-                    sess.run(updateGrads,feed_dict={batchGrad: gradBuffer})
+                    sess.run(updateGrads,feed_dict={batchGrad: gradBuffer}) #correct?
                     for ix,grad in enumerate(gradBuffer):
                         gradBuffer[ix] = grad * 0
 
@@ -278,8 +278,10 @@ def main():
                         x_eval = np.reshape(observation_eval,[1,D])
 
                         # Run the policy network and get an action to take. 
+                        model.set_weights(updateGrads) #correct?
                         tfprob = sess.run(probability,feed_dict={observations: x_eval})
-                        action = 1 if np.random.uniform() < tfprob else 0
+                        #action = 1 if np.random.uniform() < tfprob else 0
+                        action = argmax(tfprob) #correct?
 
                         # step the environment and get new measurements
                         observation, reward_eval, done, info = env.step(action)
