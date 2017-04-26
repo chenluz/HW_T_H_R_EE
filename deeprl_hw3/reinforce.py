@@ -193,7 +193,6 @@ def main():
     W7Grad = tf.placeholder(tf.float32,name="batch_grad7")
     W8Grad = tf.placeholder(tf.float32,name="batch_grad8")
     batchGrad = [W1Grad,W2Grad,W3Grad,W4Grad,W5Grad,W6Grad,W7Grad,W8Grad]
-    #batchGrad = tf.placeholder(tf.float32,name="batch_grad") for _ in range(8)#correct?
     updateGrads = adam.apply_gradients(zip(batchGrad,tvars))
 
     xs,hs,dlogps,drs,ys,tfps,ps = [],[],[],[],[],[],[]
@@ -228,14 +227,13 @@ def main():
             x = np.reshape(observation,[1,D])
         
             # Run the policy network and get an action to take. 
-            tfprob = sess.run(probability,feed_dict={observations: x})
+            #tfprob = sess.run(probability,feed_dict={observations: x})
             #tfprob = model.predict(sess.run(observations, feed_dict={observations:x}))
-            #action = 1 if np.random.uniform() < tfprob else 0
-            #action = np.argmax(tfprob) #correct?
-            action = sess.run(tfaction,feed_dict={observations:x})
+            tfpolicy = sess.run(policy,feed_dict={observations: x})
+            action = 1 if np.random.uniform() < tfpolicy[0] else 0
+            #action = sess.run(tfaction,feed_dict={observations:x})
             #prob = tfprob[0,action]
-            #prob = tfprob
-            #print(action)           
+            #prob = tfprob        
         
             xs.append(x) # observation
             #ps.append(prob) #probability, correct?
@@ -285,7 +283,7 @@ def main():
                     print ('Average reward for episode {}'.format(reward_sum/batch_size))
                     print ('Total average reward {}'.format(running_reward/batch_size))
 
-                    if reward_sum/batch_size > 300: 
+                    if reward_sum/batch_size > 200: 
                         print('Task solved in'+ str(episode_number) + 'episodes!')
                         break
                     reward_sum = 0
@@ -301,14 +299,16 @@ def main():
 
                         # Run the policy network and get an action to take. 
                         #model.set_weights(updateGrads) #correct?
-                        tfprob = sess.run(probability,feed_dict={observations: x_eval})
+                        #tfprob = sess.run(probability,feed_dict={observations: x_eval})
                         
                         #action = 1 if np.random.uniform() < tfprob[0] else 0
                         #action = argmax(tfprob) #correct?
-                        action = sess.run(tfaction,feed_dict={observations:x_eval})
+                        #action = sess.run(tfaction,feed_dict={observations:x_eval})
+                        tfpolicy = sess.run(policy,feed_dict={observations: x})
+                        action = 1 if np.random.uniform() < tfpolicy[0] else 0
 
                         # step the environment and get new measurements
-                        observation, reward_eval, done, info = env.step(action)
+                        observation_eval, reward_eval, done, info = env.step(action)
                         episode_reward += reward_eval
  
                         if done:
