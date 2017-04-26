@@ -107,7 +107,6 @@ def choose_action(model, observation):
     # # sess = tf.Session(tf.Graph()) 
     # # softmax_out = sess.run(policy, feed_dict={x:observation}) 
     # # p = softmax_out[0] 
-    # p = policy[0]
     # action = np.random.choice([0,1], 1, replace = True, p = p)[0] #Sample action from prob density
     # return p, action
     return .5, 0
@@ -140,9 +139,9 @@ def main():
     
     # hyperparameters
     H = 10 # number of hidden layer neurons
-    batch_size = 1 # every how many episodes to do a param update?
+    batch_size = 5 # every how many episodes to do a param update?
     learning_rate = 1e-2 # feel free to play with this to train faster or more stably.
-    gamma = 1 # discount factor for reward
+    gamma = 0.99 # discount factor for reward
 
     D = 4 # input dimensionality
     tf.reset_default_graph()
@@ -158,33 +157,46 @@ def main():
     # score = tf.matmul(layer1,W2)
     # probability = tf.nn.sigmoid(score)
     model = load_model('CartPole-v0_config.yaml','CartPole-v0_weights.h5f')
-    probability = model.predict_on_batch(observations)[1:2] #correct?
+    probability = model(observations) #correct?
+
+
     # assign_ops = []
     # for w, new_w in zip(model.weights, weights):
     #     assign_ops.append(w.assign(new_w))
 
     #From here we define the parts of the network needed for learning a good policy.
     tvars = tf.trainable_variables()
-    #tvars = weights
-    input_y = tf.placeholder(tf.float32,[None,1], name="input_y")
+    #tvars = model.weights
+    #probability = tf.nn.softmax(tf.matmul(observations, tvars))
+
+    input_y = tf.placeholder(tf.float32,[None,1], name="input_y") 
     advantages = tf.placeholder(tf.float32,name="reward_signal")
 
     # The loss function. This sends the weights in the direction of making actions 
-    # that gave good advantage (reward over time) more likely, and actions that didn't less likely.
-    loglik = tf.log(input_y*(input_y - probability) + (1 - input_y)*(input_y + probability))
+    # that gave good advantage (reward over time) more likely, and actions that didn't less likely.   
+    #loglik = tf.log(input_y*(input_y - probability) + (1 - input_y)*(input_y + probability))
+    tfaction = tf.argmax(probability)[0]
+    policy= tf.gather(probability,tfaction)
+    loglik = tf.log(input_y*(input_y - policy) + (1 - input_y)*(input_y + policy))
     loss = -tf.reduce_mean(loglik * advantages) 
     newGrads = tf.gradients(loss,tvars)
 
     # Once we have collected a series of gradients from multiple episodes, we apply them.
     # We don't just apply gradeients after every episode in order to account for noise in the reward signal.
     adam = tf.train.AdamOptimizer(learning_rate=learning_rate) # Our optimizer
-    #W1Grad = tf.placeholder(tf.float32,name="batch_grad1") # Placeholders to send the final gradients through when we update.
-    #W2Grad = tf.placeholder(tf.float32,name="batch_grad2")
-    #batchGrad = [W1Grad,W2Grad]
-    batchGrad = tf.placeholder(tf.floag32,name="batch_grad") #correct?
+    W1Grad = tf.placeholder(tf.float32,name="batch_grad1") # Placeholders to send the final gradients through when we update.
+    W2Grad = tf.placeholder(tf.float32,name="batch_grad2")
+    W3Grad = tf.placeholder(tf.float32,name="batch_grad3")
+    W4Grad = tf.placeholder(tf.float32,name="batch_grad4")
+    W5Grad = tf.placeholder(tf.float32,name="batch_grad5")
+    W6Grad = tf.placeholder(tf.float32,name="batch_grad6")
+    W7Grad = tf.placeholder(tf.float32,name="batch_grad7")
+    W8Grad = tf.placeholder(tf.float32,name="batch_grad8")
+    batchGrad = [W1Grad,W2Grad,W3Grad,W4Grad,W5Grad,W6Grad,W7Grad,W8Grad]
+    #batchGrad = tf.placeholder(tf.float32,name="batch_grad") for _ in range(8)#correct?
     updateGrads = adam.apply_gradients(zip(batchGrad,tvars))
 
-    xs,hs,dlogps,drs,ys,tfps = [],[],[],[],[],[]
+    xs,hs,dlogps,drs,ys,tfps,ps = [],[],[],[],[],[],[]
     running_reward = None
     reward_sum = 0
     episode_number = 1
@@ -217,10 +229,17 @@ def main():
         
             # Run the policy network and get an action to take. 
             tfprob = sess.run(probability,feed_dict={observations: x})
+            #tfprob = model.predict(sess.run(observations, feed_dict={observations:x}))
             #action = 1 if np.random.uniform() < tfprob else 0
-            action = argmax(tfprob) #correct?
+            #action = np.argmax(tfprob) #correct?
+            action = sess.run(tfaction,feed_dict={observations:x})
+            #prob = tfprob[0,action]
+            #prob = tfprob
+            #print(action)           
         
             xs.append(x) # observation
+            #ps.append(prob) #probability, correct?
+
             y = 1 if action == 0 else 0 # a "fake label"
             ys.append(y)
 
@@ -237,24 +256,27 @@ def main():
                 epx = np.vstack(xs)
                 epy = np.vstack(ys)
                 epr = np.vstack(drs)
+                #epp = np.vstack(ps) #correct?
                 tfp = tfps
-                xs,hs,dlogps,drs,ys,tfps = [],[],[],[],[],[] # reset array memory
+                xs,hs,dlogps,drs,ys,tfps,ps = [],[],[],[],[],[],[] # reset array memory
 
                 # compute the discounted reward backwards through time
                 discounted_epr = discount_rewards(epr)
                 # size the rewards to be unit normal (helps control the gradient estimator variance)
                 discounted_epr -= np.mean(discounted_epr)
                 discounted_epr /= np.std(discounted_epr)
-            
+
                 # Get the gradient for this episode, and save it in the gradBuffer
                 tGrad = sess.run(newGrads,feed_dict={observations: epx, input_y: epy, advantages: discounted_epr})
+                #tGrad = sess.run(newGrads,feed_dict={observations: epx, advantages: discounted_epr}) #change
                 for ix,grad in enumerate(tGrad):
                     gradBuffer[ix] += grad
                 
                 # If we have completed enough episodes, then update the policy network with our gradients.
                 if episode_number % batch_size == 0: 
-                    #sess.run(updateGrads,feed_dict={W1Grad: gradBuffer[0],W2Grad:gradBuffer[1]})
-                    sess.run(updateGrads,feed_dict={batchGrad: gradBuffer}) #correct?
+                    sess.run(updateGrads,feed_dict={W1Grad: gradBuffer[0],W2Grad:gradBuffer[1],W3Grad:gradBuffer[2],W4Grad:gradBuffer[3] \
+                        ,W5Grad:gradBuffer[4],W6Grad:gradBuffer[5],W7Grad:gradBuffer[6],W8Grad:gradBuffer[7]})
+                    #sess.run(updateGrads,feed_dict={batchGrad: gradBuffer}) #correct?
                     for ix,grad in enumerate(gradBuffer):
                         gradBuffer[ix] = grad * 0
 
@@ -268,7 +290,7 @@ def main():
                         break
                     reward_sum = 0
 
-                if rendering == True and episode_number % 1000 == 0:
+                if episode_number % 1000 == 0:
                     f1 = open('test_{}.txt'.format(episode_number),'w')
                     episode_length = 0
                     observation_eval = env.reset()
@@ -278,10 +300,12 @@ def main():
                         x_eval = np.reshape(observation_eval,[1,D])
 
                         # Run the policy network and get an action to take. 
-                        model.set_weights(updateGrads) #correct?
+                        #model.set_weights(updateGrads) #correct?
                         tfprob = sess.run(probability,feed_dict={observations: x_eval})
-                        #action = 1 if np.random.uniform() < tfprob else 0
-                        action = argmax(tfprob) #correct?
+                        
+                        #action = 1 if np.random.uniform() < tfprob[0] else 0
+                        #action = argmax(tfprob) #correct?
+                        action = sess.run(tfaction,feed_dict={observations:x_eval})
 
                         # step the environment and get new measurements
                         observation, reward_eval, done, info = env.step(action)
