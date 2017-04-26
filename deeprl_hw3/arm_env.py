@@ -38,7 +38,7 @@ class TwoLinkArmEnv(gym.core.Env):
             self.Q = np.zeros((self.DOF * 2, self.DOF * 2))
             self.Q[:self.DOF, :self.DOF] = np.eye(self.DOF) * 1000.0
         else:
-            self.R = R
+            self.Q = Q
 
         if R is None:
             self.R = np.eye(self.DOF) * 0.001
@@ -70,6 +70,8 @@ class TwoLinkArmEnv(gym.core.Env):
             (self.DOF, )) if noise_mu is None else noise_mu
         self.noise_sigma = np.ones(
             (self.DOF, )) if noise_sigma is None else noise_sigma
+        
+        self.u = [0.0, 0.0];
 
         self.reset()
 
@@ -156,7 +158,9 @@ class TwoLinkArmEnv(gym.core.Env):
                 self.goal_q, self.q, atol=.01) and np.allclose(
                     self.goal_dq, self.dq, atol=.01):
             is_done = True
-
+            
+        self.u = u;
+        
         return np.hstack((self.q, self.dq)), reward, is_done, {}
 
     def _render(self, mode='human', close=False):
