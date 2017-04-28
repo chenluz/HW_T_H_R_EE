@@ -104,7 +104,7 @@ def main():
     #giving a probability of chosing to the action of moving left or right.
     observations = tf.placeholder(tf.float32, [None,D] , name="input_x")
     fc1 = tf.layers.dense(inputs=observations, units=16, activation=tf.nn.relu)
-    probability = tf.layers.dense(inputs=fc1, units=2, activation=tf.nn.sigmoid)
+    probability = tf.layers.dense(inputs=fc1, units=1, activation=tf.nn.sigmoid)
 
     #From here we define the parts of the network needed for learning a good policy.
     tvars = tf.trainable_variables()
