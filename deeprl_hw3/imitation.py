@@ -58,18 +58,18 @@ def generate_expert_training_data(expert, env, num_episodes=100, render=True):
 
     current_state = env._reset()
     states = np.array(current_state)
-    output  = expert.predict(current_state.reshape(1, len(current_state)))
+    output  = expert.predict_on_batch(current_state[np.newaxis, ...])[0]
     action = np.argmax(output)
     encoder = np.zeros(2)
     np.put(encoder, action, 1)
     actions = np.array(encoder)
     if(render == True):
        env._render()
-       time.sleep(.1)  # just pauses so you can see the output
+       time.sleep(.1)  
     index_episode = 0
     is_done = False
-    step = 1
-    while index_episode != num_episodes :      
+    step = 0
+    while True:      
         
         next_state, reward, is_terminal, debug_info = env._step(action)
         step += 1
@@ -80,10 +80,12 @@ def generate_expert_training_data(expert, env, num_episodes=100, render=True):
         if is_terminal:
             current_state = env._reset()
             index_episode += 1
+            if(index_episode == num_episodes ):
+                break
         else:
             current_state = next_state
 
-        output  = expert.predict(current_state.reshape(1, len(current_state)))
+        output  = expert.predict_on_batch(current_state[np.newaxis, ...])[0]
         action = np.argmax(output)
         encoder = np.zeros(2)
         np.put(encoder, action, 1)
@@ -94,7 +96,7 @@ def generate_expert_training_data(expert, env, num_episodes=100, render=True):
     return states.reshape((step, 4)), actions.reshape(step, 2)
 
 
-def test_cloned_policy(env, cloned_policy, num_episodes=50, render=True):
+def test_cloned_policy(env, cloned_policy, num_episodes=50, render=False):
     """Run cloned policy and collect statistics on performance.
 
     Will print the rewards for each episode and the mean/std of all

@@ -3,9 +3,7 @@ import copy
 import deeprl_hw3
 import numpy as np
 from deeprl_hw3.ilqr import calc_ilqr_input
-import matplotlib.pyplot as plt
-# iLQR On TwoLinkArm-v0
-env_name = 'TwoLinkArm-v0';
+env_name = 'TwoLinkArm-v0'; # Change for different env
 env = gym.make(env_name);
 env_copy = copy.deepcopy(env);
 tN = 100;

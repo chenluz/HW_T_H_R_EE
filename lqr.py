@@ -4,8 +4,7 @@ import deeprl_hw3
 import numpy as np
 from deeprl_hw3.controllers import calc_lqr_input
 import matplotlib.pyplot as plt
-# LQR On TwoLinkArm-v0
-env_name = 'TwoLinkArm-v1';
+env_name = 'TwoLinkArm-v1'; # Change for different env
 env = gym.make(env_name);
 env_copy = copy.deepcopy(env);
 is_terminal = False;
@@ -29,6 +28,7 @@ while not is_terminal:
     #print ('Observation', ob_next);
 print("Terminal?", is_terminal)
 
+# The following codes are for plotting
 plot_x = np.array(range(action_hist.shape[0]));
 plt.plot(plot_x, action_hist[:,0], label = 'action_0');
 plt.plot(plot_x, action_hist[:,1], label = 'action_1');
