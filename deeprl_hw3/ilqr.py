@@ -213,7 +213,7 @@ def backward_recursion(x_trj, u_trj, tN, env, lamb):
     # The last state
     x_last = x_trj[-1, :].flatten() # 4
     u_last = u_trj[-1, :].flatten() # 2
-    l, l_x, l_xx, l_u, l_uu, l_ux = cost_final(env, x_last, u_last);
+    l, l_x, l_xx, l_u, l_uu, l_ux = cost_final(env, x_last, u_last)
     l_xu = l_ux.copy().T; # 4*2
     K_T = np.zeros((2, 4)) # 2*4
     k_T = np.zeros((2, 1)) # 2*1
