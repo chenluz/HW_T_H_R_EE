@@ -4,8 +4,6 @@ import numpy as np
 from keras.models import model_from_yaml
 import tensorflow as tf
 import numpy as np
-#from deeprl_hw3.imitation import load_model
-#from deeprl_hw3.imitation import wrap_cartpole
 
 def load_model(model_config_path, model_weights_path=None):
     """Load a saved model.
@@ -45,39 +43,7 @@ def get_total_reward(env, model):
     -------
     total_reward: float
     """
-    # cumulative_reward = 0
-    # episode_length = 0
-    # f1=open('reinforce.txt','w')
-    # while episode_length < 100:
-    #       observation = env.reset()
-    #       episode_reward = 0
 
-    #       #for step in range(max_episode_length):
-    #         # Make sure the observation is in a shape the network can handle.
-    #         x = np.reshape(observation,[1,4])
-        
-    #         # Run the policy network and get an action to take. 
-    #         tfprob = sess.run(probability,feed_dict={observations: x})
-    #         action = 1 if np.random.uniform() < tfprob else 0
-
-    #         observation, reward, done, info = env.step(action)
-
-    #         cumulative_reward += reward
-    #         episode_reward += reward
-    #         if done:
-    #             episode_length += 1
-    #             break
-    #             f1.write('{}\n'.format(episode_reward))
-
-    #     cumulative_reward /= num_episodes
-    #     episode_length /= num_episodes
-    #     f1.close()
-
-
-    #     logging.info('average episode length: {}'.format(episode_length))
-    #     logging.info('average accumulative reward: {}'.format(cumulative_reward))
-
-    #     return cumulative_reward
     return 0.0
 
 
@@ -98,17 +64,6 @@ def choose_action(model, observation):
         the action you choose
     """
     #Use softmax policy to sample
-    # weights = model.weights 
-    # policy = tf.nn.softmax(tf.matmul(observation, weights)) #correct??
-    # observation = np.asarray(observation)
-    # #Since CartPole dimensionality is 4
-    # observation = observation.reshape(1,4) 
-    # x = tf.placeholder("float", [None, 4]) 
-    # # sess = tf.Session(tf.Graph()) 
-    # # softmax_out = sess.run(policy, feed_dict={x:observation}) 
-    # # p = softmax_out[0] 
-    # action = np.random.choice([0,1], 1, replace = True, p = p)[0] #Sample action from prob density
-    # return p, action
     return .5, 0
 
 def reinforce(env):
@@ -138,7 +93,6 @@ def main():
     env = gym.make('CartPole-v0')
     
     # hyperparameters
-    H = 10 # number of hidden layer neurons
     batch_size = 5 # every how many episodes to do a param update?
     learning_rate = 1e-2 # feel free to play with this to train faster or more stably.
     gamma = 0.99 # discount factor for reward
@@ -149,59 +103,36 @@ def main():
     #This defines the network as it goes from taking an observation of the environment to 
     #giving a probability of chosing to the action of moving left or right.
     observations = tf.placeholder(tf.float32, [None,D] , name="input_x")
-    # W1 = tf.get_variable("W1", shape=[D, H],
-    #        initializer=tf.contrib.layers.xavier_initializer())
-    # layer1 = tf.nn.relu(tf.matmul(observations,W1))
-    # W2 = tf.get_variable("W2", shape=[H, 1],
-    #        initializer=tf.contrib.layers.xavier_initializer())
-    # score = tf.matmul(layer1,W2)
-    # probability = tf.nn.sigmoid(score)
-    model = load_model('CartPole-v0_config.yaml','CartPole-v0_weights.h5f')
-    probability = model(observations) #correct?
-
-
-    # assign_ops = []
-    # for w, new_w in zip(model.weights, weights):
-    #     assign_ops.append(w.assign(new_w))
+    fc1 = tf.layers.dense(inputs=observations, units=16, activation=tf.nn.relu)
+    probability = tf.layers.dense(inputs=fc1, units=1, activation=tf.nn.sigmoid)
 
     #From here we define the parts of the network needed for learning a good policy.
     tvars = tf.trainable_variables()
-    #tvars = model.weights
-    #probability = tf.nn.softmax(tf.matmul(observations, tvars))
 
     input_y = tf.placeholder(tf.float32,[None,1], name="input_y") 
-    advantages = tf.placeholder(tf.float32,name="reward_signal")
+    tfaction = tf.placeholder(tf.float32,[None,1],name="action")
+    advantages = tf.placeholder(tf.float32,name="reward")
 
     # The loss function. This sends the weights in the direction of making actions 
     # that gave good advantage (reward over time) more likely, and actions that didn't less likely.   
-    #loglik = tf.log(input_y*(input_y - probability) + (1 - input_y)*(input_y + probability))
-    tfaction = tf.argmax(probability)[0]
-    policy= tf.gather(probability,tfaction)
-    loglik = tf.log(input_y*(input_y - policy) + (1 - input_y)*(input_y + policy))
+    loglik = tf.log(input_y*(input_y - probability) + (1 - input_y)*(input_y + probability))
     loss = -tf.reduce_mean(loglik * advantages) 
-    newGrads = tf.gradients(loss,tvars)
 
     # Once we have collected a series of gradients from multiple episodes, we apply them.
     # We don't just apply gradeients after every episode in order to account for noise in the reward signal.
     adam = tf.train.AdamOptimizer(learning_rate=learning_rate) # Our optimizer
     W1Grad = tf.placeholder(tf.float32,name="batch_grad1") # Placeholders to send the final gradients through when we update.
     W2Grad = tf.placeholder(tf.float32,name="batch_grad2")
-    W3Grad = tf.placeholder(tf.float32,name="batch_grad3")
-    W4Grad = tf.placeholder(tf.float32,name="batch_grad4")
-    W5Grad = tf.placeholder(tf.float32,name="batch_grad5")
-    W6Grad = tf.placeholder(tf.float32,name="batch_grad6")
-    W7Grad = tf.placeholder(tf.float32,name="batch_grad7")
-    W8Grad = tf.placeholder(tf.float32,name="batch_grad8")
-    batchGrad = [W1Grad,W2Grad,W3Grad,W4Grad,W5Grad,W6Grad,W7Grad,W8Grad]
-    #batchGrad = tf.placeholder(tf.float32,name="batch_grad") for _ in range(8)#correct?
+
+    batchGrad = [W1Grad,W2Grad]
+    newGrads = adam.compute_gradients(loss,tvars)
     updateGrads = adam.apply_gradients(zip(batchGrad,tvars))
 
     xs,hs,dlogps,drs,ys,tfps,ps = [],[],[],[],[],[],[]
     running_reward = None
     reward_sum = 0
     episode_number = 1
-    total_episodes = 10000
-    #init = tf.initialize_all_variables()
+    total_episodes = 1000
     init = tf.global_variables_initializer()
 
     # Launch the graph
@@ -229,13 +160,7 @@ def main():
         
             # Run the policy network and get an action to take. 
             tfprob = sess.run(probability,feed_dict={observations: x})
-            #tfprob = model.predict(sess.run(observations, feed_dict={observations:x}))
-            #action = 1 if np.random.uniform() < tfprob else 0
-            #action = np.argmax(tfprob) #correct?
-            action = sess.run(tfaction,feed_dict={observations:x})
-            #prob = tfprob[0,action]
-            #prob = tfprob
-            #print(action)           
+            action = 1 if np.random.uniform() < tfprob[0,0] else 0       
         
             xs.append(x) # observation
             #ps.append(prob) #probability, correct?
@@ -256,7 +181,7 @@ def main():
                 epx = np.vstack(xs)
                 epy = np.vstack(ys)
                 epr = np.vstack(drs)
-                #epp = np.vstack(ps) #correct?
+
                 tfp = tfps
                 xs,hs,dlogps,drs,ys,tfps,ps = [],[],[],[],[],[],[] # reset array memory
 
@@ -268,15 +193,13 @@ def main():
 
                 # Get the gradient for this episode, and save it in the gradBuffer
                 tGrad = sess.run(newGrads,feed_dict={observations: epx, input_y: epy, advantages: discounted_epr})
-                #tGrad = sess.run(newGrads,feed_dict={observations: epx, advantages: discounted_epr}) #change
+                tGrad = [x[0] for x in tGrad]
                 for ix,grad in enumerate(tGrad):
                     gradBuffer[ix] += grad
                 
                 # If we have completed enough episodes, then update the policy network with our gradients.
                 if episode_number % batch_size == 0: 
-                    sess.run(updateGrads,feed_dict={W1Grad: gradBuffer[0],W2Grad:gradBuffer[1],W3Grad:gradBuffer[2],W4Grad:gradBuffer[3] \
-                        ,W5Grad:gradBuffer[4],W6Grad:gradBuffer[5],W7Grad:gradBuffer[6],W8Grad:gradBuffer[7]})
-                    #sess.run(updateGrads,feed_dict={batchGrad: gradBuffer}) #correct?
+                    sess.run(updateGrads,feed_dict={W1Grad: gradBuffer[0],W2Grad:gradBuffer[1]}) 
                     for ix,grad in enumerate(gradBuffer):
                         gradBuffer[ix] = grad * 0
 
@@ -285,12 +208,12 @@ def main():
                     print ('Average reward for episode {}'.format(reward_sum/batch_size))
                     print ('Total average reward {}'.format(running_reward/batch_size))
 
-                    if reward_sum/batch_size > 300: 
+                    if reward_sum/batch_size > 200: 
                         print('Task solved in'+ str(episode_number) + 'episodes!')
                         break
                     reward_sum = 0
 
-                if episode_number % 1000 == 0:
+                if rendering == True and episode_number % 100 == 0:
                     f1 = open('test_{}.txt'.format(episode_number),'w')
                     episode_length = 0
                     observation_eval = env.reset()
@@ -300,15 +223,12 @@ def main():
                         x_eval = np.reshape(observation_eval,[1,D])
 
                         # Run the policy network and get an action to take. 
-                        #model.set_weights(updateGrads) #correct?
                         tfprob = sess.run(probability,feed_dict={observations: x_eval})
                         
-                        #action = 1 if np.random.uniform() < tfprob[0] else 0
-                        #action = argmax(tfprob) #correct?
-                        action = sess.run(tfaction,feed_dict={observations:x_eval})
+                        action = 1 if np.random.uniform() < tfprob[0,0] else 0
 
                         # step the environment and get new measurements
-                        observation, reward_eval, done, info = env.step(action)
+                        observation_eval, reward_eval, done, info = env.step(action)
                         episode_reward += reward_eval
  
                         if done:
